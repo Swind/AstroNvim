@@ -1,3 +1,6 @@
+local home = os.getenv("HOME")
+local pyenv_python = home .. "/.pyenv/shims/python"
+
 local config = {
 
   -- Set colorscheme
@@ -51,10 +54,24 @@ local config = {
       --     require("lsp_signature").setup()
       --   end,
       -- },
+      -- Coplit
+      -- Keymaps popup
+      {
+        "github/copilot.vim",
+        -- event = "BufRead",
+        config = function()
+          vim.g.copilot_no_tab_map = true
+          vim.g.copilot_filetypes = {
+            cpp = false,
+            h = false,
+            cc = false,
+          }
+        end,
+      },
     },
     -- All other entries override the setup() call for default plugins
     treesitter = {
-      ensure_installed = { 
+      ensure_installed = {
         "html",
         "css",
         "vim",
@@ -152,6 +169,18 @@ local config = {
       --     },
       --   },
       -- },
+      pylsp = {
+        plugins = {
+          jedi = {
+            -- pylsp.plugins.jedi.environment
+            environment = pyenv_python,
+          },
+          flake8 = {
+            maxLineLength = 128,
+            ignore = {'E111', 'E501'}
+          }
+        }
+      }
     },
   },
 
@@ -183,6 +212,8 @@ local config = {
       sources = {
         -- Set a formatter
         formatting.rufo,
+        formatting.stylua,
+        formatting.shfmt,
         -- Set a linter
         diagnostics.rubocop,
       },
@@ -192,7 +223,7 @@ local config = {
           vim.api.nvim_create_autocmd("BufWritePre", {
             desc = "Auto format before save",
             pattern = "<buffer>",
-            callback = vim.lsp.buf.formatting_sync,
+            callback = vim.lsp.buf.format,
           })
         end
       end,
@@ -203,7 +234,18 @@ local config = {
   -- good place to configure mappings and vim options
   polish = function()
     -- Set key bindings
+    local map = vim.api.nvim_set_keymap
+    local opts = { noremap = true, silent = true }
     vim.keymap.set("n", "<C-s>", ":w!<CR>")
+
+    -- Better window navigation
+    map("n", "<A-h>", "<C-w>h", opts)
+    map("n", "<A-j>", "<C-w>j", opts)
+    map("n", "<A-k>", "<C-w>k", opts)
+    map("n", "<A-l>", "<C-w>l", opts)
+
+    -- Telescope
+    map("n", "<C-p>", "<cmd>Telescope find_files<CR>", opts)
 
     -- Set autocommands
     vim.api.nvim_create_augroup("packer_conf", {})
@@ -213,6 +255,9 @@ local config = {
       pattern = "plugins.lua",
       command = "source <afile> | PackerSync",
     })
+
+    -- Copilot
+    vim.api.nvim_set_keymap("i", "<C-l>", "copilot#Accept('')", { silent = true, expr = true })
 
     -- Set up custom filetypes
     -- vim.filetype.add {
