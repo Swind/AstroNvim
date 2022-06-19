@@ -68,6 +68,27 @@ local config = {
           }
         end,
       },
+      {
+        "mfussenegger/nvim-dap",
+        config = function()
+          local dap = require("dap")
+          -- C/C++/Rust(via lldb-vscode)
+          dap.adapters.lldb = {
+            type = 'executable',
+            command = '/usr/bin/lldb-vscode-12', -- adjust as needed, must be absolute path
+            name = 'lldb'
+          }
+          dap.configurations.cpp = {
+            name = 'Attach to process',
+            type = 'lldb',
+            request = 'attach',
+            pid = require('dap.utils').pick_process,
+            args = {},
+          }
+          dap.configurations.c = dap.configurations.cpp
+          dap.configurations.rust = dap.configurations.cpp
+        end,
+      },
     },
     -- All other entries override the setup() call for default plugins
     treesitter = {
@@ -177,7 +198,7 @@ local config = {
           },
           flake8 = {
             maxLineLength = 128,
-            ignore = {'E111', 'E501'}
+            ignore = { 'E111', 'E501' }
           }
         }
       }
