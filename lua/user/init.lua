@@ -1,10 +1,37 @@
-local home = os.getenv("HOME")
-local pyenv_python = home .. "/.pyenv/shims/python"
-
 local config = {
+
+  -- Configure AstroNvim updates
+  updater = {
+    remote = "origin", -- remote to use
+    channel = "nightly", -- "stable" or "nightly"
+    version = "latest", -- "latest", tag name, or regex search like "v1.*" to only do updates before v2 (STABLE ONLY)
+    branch = "main", -- branch name (NIGHTLY ONLY)
+    commit = nil, -- commit hash (NIGHTLY ONLY)
+    pin_plugins = nil, -- nil, true, false (nil will pin plugins on stable only)
+    skip_prompts = false, -- skip prompts about breaking changes
+    show_changelog = true, -- show the changelog after performing an update
+    -- remotes = { -- easily add new remotes to track
+    --   ["remote_name"] = "https://remote_url.come/repo.git", -- full remote url
+    --   ["remote2"] = "github_user/repo", -- GitHub user/repo shortcut,
+    --   ["remote3"] = "github_user", -- GitHub user assume AstroNvim fork
+    -- },
+  },
 
   -- Set colorscheme
   colorscheme = "default_theme",
+
+  -- Override highlight groups in any theme
+  highlights = {
+    -- duskfox = { -- a table of overrides
+    --   Normal = { bg = "#000000" },
+    -- },
+    default_theme = function(highlights) -- or a function that returns one
+      local C = require "default_theme.colors"
+
+      highlights.Normal = { fg = C.fg, bg = C.bg }
+      return highlights
+    end,
+  },
 
   -- set vim options here (vim.<first_key>.<second_key> =  value)
   options = {
@@ -23,13 +50,25 @@ local config = {
     colors = {
       fg = "#abb2bf",
     },
-    -- Modify the highlight groups
-    highlights = function(highlights)
-      local C = require "default_theme.colors"
-
-      highlights.Normal = { fg = C.fg, bg = C.bg }
-      return highlights
-    end,
+    plugins = { -- enable or disable extra plugin highlighting
+      aerial = true,
+      beacon = false,
+      bufferline = true,
+      dashboard = true,
+      highlighturl = true,
+      hop = false,
+      indent_blankline = true,
+      lightspeed = false,
+      ["neo-tree"] = true,
+      notify = true,
+      ["nvim-tree"] = false,
+      ["nvim-web-devicons"] = true,
+      rainbow = true,
+      symbols_outline = false,
+      telescope = true,
+      vimwiki = false,
+      ["which-key"] = true,
+    },
   },
 
   -- Disable AstroNvim ui features
@@ -54,70 +93,40 @@ local config = {
       --     require("lsp_signature").setup()
       --   end,
       -- },
-      -- Coplit
-      -- Keymaps popup
-      {
-        "github/copilot.vim",
-        -- event = "BufRead",
-        config = function()
-          vim.g.copilot_no_tab_map = true
-          vim.g.copilot_filetypes = {
-            cpp = false,
-            h = false,
-            cc = false,
-          }
-        end,
-      },
-      {
-        "mfussenegger/nvim-dap",
-        config = function()
-          local dap = require("dap")
-          -- C/C++/Rust(via lldb-vscode)
-          dap.adapters.lldb = {
-            type = 'executable',
-            command = '/usr/bin/lldb-vscode-12', -- adjust as needed, must be absolute path
-            name = 'lldb'
-          }
-          dap.configurations.cpp = {
-            name = 'Attach to process',
-            type = 'lldb',
-            request = 'attach',
-            pid = require('dap.utils').pick_process,
-            args = {},
-          }
-          dap.configurations.c = dap.configurations.cpp
-          dap.configurations.rust = dap.configurations.cpp
-        end,
-      },
     },
     -- All other entries override the setup() call for default plugins
+    ["null-ls"] = function(config)
+      local null_ls = require "null-ls"
+      -- Check supported formatters and linters
+      -- https://github.com/jose-elias-alvarez/null-ls.nvim/tree/main/lua/null-ls/builtins/formatting
+      -- https://github.com/jose-elias-alvarez/null-ls.nvim/tree/main/lua/null-ls/builtins/diagnostics
+      config.sources = {
+        -- Set a formatter
+        null_ls.builtins.formatting.rufo,
+        -- Set a linter
+        null_ls.builtins.diagnostics.rubocop,
+      }
+      -- set up null-ls's on_attach function
+      config.on_attach = function(client)
+        -- NOTE: You can remove this on attach function to disable format on save
+        if client.resolved_capabilities.document_formatting then
+          vim.api.nvim_create_autocmd("BufWritePre", {
+            desc = "Auto format before save",
+            pattern = "<buffer>",
+            callback = vim.lsp.buf.formatting_sync,
+          })
+        end
+      end
+      return config -- return final config table
+    end,
     treesitter = {
-      ensure_installed = {
-        "html",
-        "css",
-        "vim",
-        "lua",
-        "javascript",
-        "typescript",
-        "jsonc",
-        "json",
-        "toml",
-        "python",
-        "cpp",
-        "c",
-        "bash",
-        "dart",
-        "go",
-        "make",
-        "ninja",
-        "rust",
-      },
+      ensure_installed = { "lua" },
     },
     ["nvim-lsp-installer"] = {
       ensure_installed = { "sumneko_lua" },
     },
     packer = {
-      compile_path = vim.fn.stdpath "config" .. "/lua/packer_compiled.lua",
+      compile_path = vim.fn.stdpath "data" .. "/packer_compiled.lua",
     },
   },
 
@@ -167,14 +176,20 @@ local config = {
     servers = {
       -- "pyright"
     },
+    -- easily add or disable built in mappings added during LSP attaching
+    mappings = {
+      n = {
+        -- ["<leader>lf"] = false -- disable formatting keymap
+      },
+    },
     -- add to the server on_attach function
     -- on_attach = function(client, bufnr)
     -- end,
 
     -- override the lsp installer server-registration function
     -- server_registration = function(server, opts)
-    --   require("lspconfig")[server.name].setup(opts)
-    -- end
+    --   require("lspconfig")[server].setup(opts)
+    -- end,
 
     -- Add overrides for LSP server settings, the keys are the name of the server
     ["server-settings"] = {
@@ -190,18 +205,6 @@ local config = {
       --     },
       --   },
       -- },
-      pylsp = {
-        plugins = {
-          jedi = {
-            -- pylsp.plugins.jedi.environment
-            environment = pyenv_python,
-          },
-          flake8 = {
-            maxLineLength = 128,
-            ignore = { 'E111', 'E501' }
-          }
-        }
-      }
     },
   },
 
@@ -211,50 +214,22 @@ local config = {
     underline = true,
   },
 
-  -- null-ls configuration
-  ["null-ls"] = function()
-    -- Formatting and linting
-    -- https://github.com/jose-elias-alvarez/null-ls.nvim
-    local status_ok, null_ls = pcall(require, "null-ls")
-    if not status_ok then
-      return
-    end
-
-    -- Check supported formatters
-    -- https://github.com/jose-elias-alvarez/null-ls.nvim/tree/main/lua/null-ls/builtins/formatting
-    local formatting = null_ls.builtins.formatting
-
-    -- Check supported linters
-    -- https://github.com/jose-elias-alvarez/null-ls.nvim/tree/main/lua/null-ls/builtins/diagnostics
-    local diagnostics = null_ls.builtins.diagnostics
-
-    null_ls.setup {
-      debug = false,
-      sources = {
-        -- Set a formatter
-        formatting.rufo,
-        formatting.stylua,
-        formatting.shfmt,
-        -- Set a linter
-        diagnostics.rubocop,
-      },
-      -- NOTE: You can remove this on attach function to disable format on save
-      on_attach = function(client)
-        if client.server_capabilities.documentFormattingProvider then
-          vim.api.nvim_create_autocmd("BufWritePre", {
-            desc = "Auto format before save",
-            pattern = "<buffer>",
-            callback = vim.lsp.buf.format,
-          })
-        end
-      end,
-    }
-  end,
+  mappings = {
+    -- first key is the mode
+    n = {
+      -- second key is the lefthand side of the map
+      ["<C-s>"] = { ":w!<cr>", desc = "Save File" },
+    },
+    t = {
+      -- setting a mapping to false will disable it
+      -- ["<esc>"] = false,
+    },
+  },
 
   -- This function is run last
-  -- good place to configure mappings and vim options
+  -- good place to configuring augroups/autocommands and custom filetypes
   polish = function()
-    -- Set key bindings
+    -- Set key binding
     local map = vim.api.nvim_set_keymap
     local opts = { noremap = true, silent = true }
     vim.keymap.set("n", "<C-s>", ":w!<CR>")
@@ -269,16 +244,13 @@ local config = {
     map("n", "<C-p>", "<cmd>Telescope find_files<CR>", opts)
 
     -- Set autocommands
-    vim.api.nvim_create_augroup("packer_conf", {})
+    vim.api.nvim_create_augroup("packer_conf", { clear = true })
     vim.api.nvim_create_autocmd("BufWritePost", {
       desc = "Sync packer after modifying plugins.lua",
       group = "packer_conf",
       pattern = "plugins.lua",
       command = "source <afile> | PackerSync",
     })
-
-    -- Copilot
-    vim.api.nvim_set_keymap("i", "<C-l>", "copilot#Accept('')", { silent = true, expr = true })
 
     -- Set up custom filetypes
     -- vim.filetype.add {
